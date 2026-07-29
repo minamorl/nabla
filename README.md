@@ -144,6 +144,90 @@ Node counts grow roughly 5× per order (42 → 174 → 838 → 4,642), but gcc's
 a third derivative with 20× the nodes of the first runs at **1.69×** its cost. Compile time is what
 degrades first — about 185 ms and 143 KB of C at the fifth order.
 
+## The symbolic layer: integrals, multiple integrals, limits
+
+Differentiation is compositional — every node has a rule, so the transformation always
+terminates. **Integration is not.** There is no chain rule for `∫`, deciding elementary
+integrability needs the Risch algorithm, and no CAS implements it completely.
+
+So this layer solves the forms it can and **refuses the rest out loud**:
+
+```ruby
+Nabla.integrate((3.0 * x * x) + (2.0 * x) + 1.0, x)   # => x^3 + x^2 + x
+Nabla.integrate(((2.0 * x) + 1.0).sin, x)             # => -0.5 * cos(2x + 1)
+Nabla.integrate(x.sin * x.cos, x)
+# Nabla::NotElementary: product of two factors that both depend on the variable
+#                       needs integration by parts
+```
+
+Returning an approximation there would be the worst outcome: the caller cannot tell it apart
+from a correct answer. Covered today: polynomials, linearity, `sin`/`cos`/`exp` of a linear
+argument, `1/(ax+b)`, and constants. Integration by parts, partial fractions and general
+substitution are not implemented.
+
+### ∫ checked by ∂
+
+This is why the layer lives next to a differentiator. `∫f = F` is exactly the claim `F' = f`,
+and **nabla can check its own answer**:
+
+```ruby
+primitive = Nabla.integrate(integrand, x)
+Nabla.verify_integral(integrand, primitive, x)
+# => symbolically exact
+# => numeric agreement, max relative error 3.49e-16
+```
+
+The two statuses are not the same kind of thing, and the API keeps them apart:
+
+- **`:symbolic`** — `F'` reduced to `f` syntactically. No numbers were involved, so the integral
+  is correct as long as the differentiation rules are. This is a certificate.
+- **`:numeric`** — they did not match syntactically, so both were compiled to native kernels and
+  compared over random points. This only says no counterexample was found.
+
+Currently **2 of 8** worked examples verify symbolically; the rest fall back to numeric agreement
+at 1e-14 or better. That ratio is a function of how strong the simplifier is, which makes it a
+development metric rather than a slogan — run `rake examples` to see it.
+
+To be clear about the category: this is a CAS, not a proof assistant. It computes; it does not
+check proofs against a trusted kernel, and it is not comparable to Lean or Coq.
+
+### Multiple integrals need no special machinery
+
+A definite integral returns an _expression_, so the inner result is simply the outer integrand:
+
+```ruby
+inner = Nabla.definite_integral((x * x) + (y * y), x, 0.0, 1.0)   # an expression in y
+outer = Nabla.definite_integral(inner, y, 0.0, 1.0)               # => 2/3
+```
+
+Bounds may be symbolic too, so `∫_0^y 2x dx = y²` works.
+
+### Limits
+
+L'Hopital costs almost nothing here, because the differentiator already exists:
+
+```ruby
+Nabla.limit(x.sin, x, x, at: 0.0)                    # => 1.0
+Nabla.limit(1.0 - x.cos, x * x, x, at: 0.0)          # => 0.5
+```
+
+**This is the weakest part of the library.** Detecting the indeterminate form is a _numeric_
+test against a threshold, not a symbolic one, so a very small non-zero value can be mistaken for
+zero. Series-based limits (Gruntz) are not implemented; forms L'Hopital cannot resolve are
+refused.
+
+### Simplification
+
+`Nabla.simplify` does constant folding and identity elimination. It is **not** an algebraic
+normal form — it folds `x + x` but not `2x + 3x`, and it does not expand or collect like terms.
+
+It matters more than it sounds: differentiation is syntactic, so it always leaves `1.0 * x + x *
+1.0` behind. Simplifying shrinks derivative expressions by about 40% (`x*x` → 5 nodes → 3), and
+without it the integrator's pattern matching cannot recognise `x * 1.0` as a polynomial.
+
+Two things are deliberately left unfolded: division by zero (moissanite's oracle raises there and
+native is undefined — the simplifier must not manufacture an `Inf`) and out-of-domain `log`/`sqrt`.
+
 ## Install
 
 ```ruby
@@ -166,11 +250,24 @@ chain moissanite guarantees.
 | `Nabla.flatten(statements)`                         | Fold a straight-line body (`Let`/`Ret`) into one expression.                    |
 | `Nabla.size(expr)` / `Nabla.tree_size(expr)`        | DAG size vs. tree expansion. The gap is why `Emitter` exists.                   |
 
+| `Nabla.simplify(expr)` | Constant folding and identity elimination. Not a normal form. |
+| `Nabla.integrate(expr, var)` | Antiderivative, or `NotElementary` — never an approximation. |
+| `Nabla.definite_integral(expr, var, lo, hi)` | `F(hi) - F(lo)`. Returns an expression, so nesting gives multiple integrals. |
+| `Nabla.verify_integral(integrand, primitive, var)` | Differentiate the answer back. `:symbolic` is a certificate, `:numeric` is not. |
+| `Nabla.limit(num, den, var, at:)` | L'Hopital. Indeterminacy is detected numerically — see Limits. |
+| `Nabla.substitute(expr, var, replacement)` | Replace a variable, simplifying as it goes. |
+| `Nabla.free_of?(expr, var)` | Whether an expression is independent of a variable. |
+
 Targets are `Param` nodes (scalar kernel arguments) or `Load` nodes (`buf[i]`, buffer reads).
 
 ## Limits
 
 - **f64 only**, inherited from moissanite's scalar types.
+- **Integration covers a narrow set of forms** (see the symbolic layer). No integration by parts,
+  partial fractions, or general substitution; no Risch.
+- **Limits detect indeterminate forms numerically**, which can be fooled by very small non-zero
+  values. No series expansion.
+- **`simplify` is not a normal form**, so many correct integrals verify only numerically.
 - **Sequential recurrences are not differentiable here** (see Reductions).
 - `min` / `max` / `abs` have no derivative at the kink. nabla follows the `fmin`/`fmax` convention
   and routes the adjoint to one side; that is a convention, not a theorem.

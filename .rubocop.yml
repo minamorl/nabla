@@ -24,6 +24,9 @@ Metrics/AbcSize:
     - lib/nabla/reverse.rb
     - lib/nabla/locals.rb
     - lib/nabla/emitter.rb
+    - lib/nabla/simplify.rb
+    - lib/nabla/integrate.rb
+    - lib/nabla/verify.rb
 
 Metrics/MethodLength:
   Max: 20
@@ -41,6 +44,10 @@ Metrics/CyclomaticComplexity:
     - lib/nabla/emitter.rb
     - lib/nabla/locals.rb
     - lib/nabla/dag.rb
+    - lib/nabla/simplify.rb
+    - lib/nabla/poly.rb
+    - lib/nabla/integrate.rb
+    - lib/nabla/rewrite.rb
     - examples/**/*
 
 Metrics/PerceivedComplexity:
@@ -50,6 +57,8 @@ Metrics/PerceivedComplexity:
     - lib/nabla/emitter.rb
     - lib/nabla/locals.rb
     - lib/nabla/dag.rb
+    - lib/nabla/simplify.rb
+    - lib/nabla/poly.rb
 
 Metrics/BlockLength:
   Exclude:
@@ -65,8 +74,21 @@ Metrics/ModuleLength:
   Exclude:
     - lib/nabla/forward.rb
     - lib/nabla/reverse.rb
+    - lib/nabla/simplify.rb
+    - lib/nabla/integrate.rb
 
+# 簡約器は式木の中の **リテラル** 1.0 / -1.0 / 0.0 を見分ける。これらは
+# IEEE754 で厳密に表現される値なので、== による同定は正しい。近似比較に
+# 置き換えると 0.9999999 を 1 と見なして式を書き換えてしまい、そちらが
+# 誤りになる。
+Lint/FloatComparison:
+  Exclude:
+    - lib/nabla/simplify.rb
+
+# 3 個の位置引数 + 標本化の任意設定という形で、キーワード引数は既定値を
+# 持つ調整つまみである。まとめてハッシュにすると呼び手から名前が消える。
 Metrics/ParameterLists:
+  CountKeywordArgs: false
   Exclude:
     - test/**/*
     - examples/**/*
@@ -92,6 +114,11 @@ Naming/MethodParameterName:
     - g
     - n
     - o
+    - at
+    - fn
+    - op
+    - lo
+    - hi
 
 Minitest/MultipleAssertions:
   Exclude:

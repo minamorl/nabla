@@ -11,4 +11,8 @@ module Nabla
 
   # 微分規則を持たない演算・扱えない文の形。
   class Unsupported < Error; end
+
+  # 積分・極限が解けなかった。**近似を返すより断る**ための例外である。
+  # 呼び手が成功と区別できない答えを返すことのほうが害が大きい。
+  class NotElementary < Error; end
 end

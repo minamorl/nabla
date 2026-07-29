@@ -21,6 +21,12 @@ require_relative 'nabla/forward'
 require_relative 'nabla/reverse'
 require_relative 'nabla/emitter'
 require_relative 'nabla/locals'
+require_relative 'nabla/simplify'
+require_relative 'nabla/rewrite'
+require_relative 'nabla/poly'
+require_relative 'nabla/integrate'
+require_relative 'nabla/verify'
+require_relative 'nabla/limit'
 
 module Nabla
   module_function
@@ -78,5 +84,45 @@ module Nabla
 
   def tree_size(expression, env: nil)
     DAG.tree_size(expression, env)
+  end
+
+  # ---- 記号代数層 --------------------------------------------------------
+
+  # 定数畳み込みと単位元の除去。代数的正規形ではない (同類項は集めない)。
+  def simplify(expression)
+    Simplify.run(expression)
+  end
+
+  # 不定積分。解けない形は NotElementary で断る — 近似は返さない。
+  def integrate(expression, variable)
+    Integrate.antiderivative(expression, variable)
+  end
+
+  # 定積分 F(hi) - F(lo)。内側の結果が式として返るので、重積分は
+  # これを入れ子にするだけで済む。
+  def definite_integral(expression, variable, lower, upper)
+    Integrate.definite(expression, variable, lower, upper)
+  end
+
+  # 積分結果を微分し戻して検証する。:symbolic なら微分規則が正しい限り
+  # 正しく、:numeric なら反例が見つからなかったことしか言えない。
+  def verify_integral(integrand, primitive, variable, **)
+    Verify.integral(integrand, primitive, variable, **)
+  end
+
+  # L'Hopital による商の極限。不定形の判定が数値なので、この CAS で
+  # 最も弱い部分である (Limit の注記を参照)。
+  def limit(numerator, denominator, variable, at:, applications: 8)
+    Limit.quotient(numerator, denominator, variable, at, applications: applications)
+  end
+
+  # 変数を式で置き換える。
+  def substitute(expression, variable, replacement)
+    Rewrite.substitute(expression, variable, replacement)
+  end
+
+  # 式が変数に依存しないか。
+  def free_of?(expression, variable)
+    Rewrite.free_of?(expression, variable)
   end
 end
