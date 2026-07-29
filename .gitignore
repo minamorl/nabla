@@ -1,0 +1,21 @@
+# Bundler / Ruby
+/.bundle/
+/vendor/bundle/
+Gemfile.lock
+*.gem
+/pkg/
+/coverage/
+
+# Node / formatter tooling
+node_modules/
+package-lock.json
+
+# Local runtime / temp
+/tmp/
+*.log
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp

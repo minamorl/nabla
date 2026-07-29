@@ -1,0 +1,98 @@
+plugins:
+  - rubocop-minitest
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.2
+  SuggestExtensions: false
+  Exclude:
+    - vendor/**/*
+    - tmp/**/*
+
+Style/Documentation:
+  Enabled: false
+
+# 微分規則は「ノード種別 -> 規則」の対応表 (case) である。分割すると
+# 対応表としての一覧性、つまり微分の定義そのものの読みやすさが壊れる。
+# moissanite が oracle / emitter に同じ免除を与えているのと同じ理由。
+Metrics/AbcSize:
+  Max: 20
+  Exclude:
+    - test/**/*
+    - examples/**/*
+    - lib/nabla/forward.rb
+    - lib/nabla/reverse.rb
+    - lib/nabla/locals.rb
+    - lib/nabla/emitter.rb
+
+Metrics/MethodLength:
+  Max: 20
+  Exclude:
+    - test/**/*
+    - examples/**/*
+    - lib/nabla/forward.rb
+    - lib/nabla/reverse.rb
+    - lib/nabla/locals.rb
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - lib/nabla/forward.rb
+    - lib/nabla/reverse.rb
+    - lib/nabla/emitter.rb
+    - lib/nabla/locals.rb
+    - lib/nabla/dag.rb
+    - examples/**/*
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - lib/nabla/forward.rb
+    - lib/nabla/reverse.rb
+    - lib/nabla/emitter.rb
+    - lib/nabla/locals.rb
+    - lib/nabla/dag.rb
+
+Metrics/BlockLength:
+  Exclude:
+    - test/**/*
+    - examples/**/*
+    - "*.gemspec"
+
+Metrics/ClassLength:
+  Exclude:
+    - test/**/*
+
+Metrics/ModuleLength:
+  Exclude:
+    - lib/nabla/forward.rb
+    - lib/nabla/reverse.rb
+
+Metrics/ParameterLists:
+  Exclude:
+    - test/**/*
+    - examples/**/*
+
+# DSL の式に対する誤検出を止める: n > 0 は「数値の判定」ではなく
+# 「bool 式ノードの構築」なので .positive? への書き換えは意味を壊す。
+Style/NumericPredicate:
+  Enabled: false
+
+Naming/VariableNumber:
+  AllowedIdentifiers:
+    - f64
+    - i64
+    - f64_buf
+    - i64_buf
+
+Naming/MethodParameterName:
+  AllowedNames:
+    - k
+    - x
+    - y
+    - w
+    - g
+    - n
+    - o
+
+Minitest/MultipleAssertions:
+  Exclude:
+    - test/**/*
