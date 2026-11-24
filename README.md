@@ -174,18 +174,41 @@ and **nabla can check its own answer**:
 primitive = Nabla.integrate(integrand, x)
 Nabla.verify_integral(integrand, primitive, x)
 # => symbolically exact
-# => numeric agreement, max relative error 3.49e-16
+# => numeric comparison, max scaled error 3.49e-16
 ```
 
-The two statuses are not the same kind of thing, and the API keeps them apart:
+The statuses are not the same kind of thing, and the API keeps them apart:
 
 - **`:symbolic`** — `F'` reduced to `f` syntactically. No numbers were involved, so the integral
-  is correct as long as the differentiation rules are. This is a certificate.
-- **`:numeric`** — they did not match syntactically, so both were compiled to native kernels and
-  compared over random points. This only says no counterexample was found.
+  is correct on a shared real domain as long as the differentiation rules are. This does not
+  establish that such a domain includes any particular point.
+- **`:numeric`** — symbolic matching or its domain/finite-arithmetic checks did not establish a
+  certificate, so both were compiled to kernels and compared over random points. `ok?` reports
+  whether the maximum error meets the tolerance;
+  even a passing result only says no counterexample was found.
+- **`:inconclusive`** — no finite integrand comparison could be made, or an unbound parameter
+  prevents the numeric domain check, so `ok?` is false.
 
-Currently **2 of 8** worked examples verify symbolically; the rest fall back to numeric agreement
-at 1e-14 or better. That ratio is a function of how strong the simplifier is, which makes it a
+For a finite nonzero integrand the error is relative to its absolute value; for an exactly zero
+integrand it is absolute error on a scale of 1. A nonfinite derivative or primitive at a finite
+integrand is an infinite error. Points where the integrand
+is undefined or nonfinite are skipped. Numeric sampling requires a positive integer `samples`
+and finite, ordered, nonempty range endpoints; a symbolic match needs no samples. Range endpoints
+are validated for both statuses. Known nonfinite or undefined subexpressions are rejected before
+symbolic matching, but this check does not establish a complete real domain. When the derivative
+does not retain evidence for each original domain-sensitive operation and its argument, the
+verifier falls back to sampling instead of certifying the equality symbolically. A conservative
+range analysis also checks the original primitive and integrand arithmetic for finiteness; an
+unproved bound or a dynamic conditional likewise triggers numeric comparison. For independent
+numeric parameters, the bound uses the finite witness slice where they are zero. A symbolic result
+still concerns the shared real domain and does not assert finite f64 evaluation for every possible
+assignment of those parameters.
+An explicitly nonfinite primitive cannot pass symbolically; if a finite integrand sample exists,
+it is a numeric counterexample. Independent parameters in proven linear additive integration
+constants are omitted from the primitive's numerical domain check.
+
+Currently **2 of 8** worked examples verify symbolically; the rest fall back to numeric comparison.
+That ratio is a function of how strong the simplifier is, which makes it a
 development metric rather than a slogan — run `rake examples` to see it.
 
 To be clear about the category: this is a CAS, not a proof assistant. It computes; it does not
